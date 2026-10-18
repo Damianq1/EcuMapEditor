@@ -1,0 +1,29 @@
+Projekt: Mobilny Edytor Map ECU (Android)
+Pakiet główny: com.winols.app
+Język: Kotlin (pełna interoperacyjność z kodem w Java, np. MapDefinition, MapFinderEngine)
+Główny cel: Mobilny odpowiednik programów do analizy, podglądu i edycji plików binarnych Flash/EEPROM ze sterowników ECU.
+
+1. WYMAGANIA TECHNICZNE I ARCHITEKTURA
+- UI: ViewBinding, własne skustomizowane widoki (Custom Views) dla wykresów 2D/3D i tabel.
+- Wydajność: Operacje I/O, skanowanie pamięci i przeliczania binarne asynchronicznie (Kotlin Coroutines / Dispatchers.Default / IO).
+- Pamięć: Praca na plikach binarnych (512 KB – 8 MB) z użyciem bezpośrednich buforów pamięci (java.nio.ByteBuffer) oraz caching.
+
+2. KLUCZOWE MODUŁY I FUNKCJONALNOŚCI
+[A] Obsługa plików binarnych (.bin / .hex) - BinaryFileManager:
+- Odczyt/zapis przez ByteBuffer.
+- Reprezentacje: HEX (8-bit/16-bit, Signed/Unsigned, Little/Big Endian), Wykres 2D, Tabela 3D.
+
+[B] Wyszukiwanie i definicja map (MapFinderEngine & MapDefinition):
+- Automatyczne wykrywanie potencjalnych map (osie X/Y, bloki danych).
+- Przeliczanie RAW na fizyczne według Factor i Offset: Wartość = (RAW * Factor) + Offset.
+
+[C] Podgląd i edycja danych (HexGridView, Waveform2DView, Surface3DView):
+- Widok tabelaryczny z operacjami masowymi: dodawanie/odejmowanie, zmiana procentowa (+/- %), stała wartość, wygładzanie (smoothing).
+- Interaktywny wykres 2D i 3D dla zaznaczonych map.
+
+[D] Sumy kontrolne i Eksport (ExcelExporter & ChecksumEngine):
+- Eksport map i różnic (ori vs mod) do CSV/XLS.
+- Przeliczanie i weryfikacja sum kontrolnych przed zapisem.
+
+3. DODATKOWE:
+- Wygeneruj również workflow GitHub Actions (.github/workflows/android.yml) do automatycznej budowy APK.

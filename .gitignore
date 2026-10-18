@@ -1,0 +1,8 @@
+.gradle/
+build/
+app/build/
+actions-runner/
+.gemini/
+*.iml
+.idea/
+gh_error.log
