@@ -63,5 +63,3 @@ dependencies {
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
 }
-
-// Auto-fix patch stamp
