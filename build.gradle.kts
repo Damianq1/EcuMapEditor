@@ -3,13 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android) apply false
 }
 
-allprojects {
-    repositories {
-        google()
-        mavenCentral()
-    }
-}
-
-tasks.register<Delete>("clean") {
-    delete(rootProject.buildDir)
+// Nowoczesny sposób czyszczenia katalogu build w Gradle
+tasks.register("clean", Delete::class) {
+    delete(layout.buildDirectory)
 }
