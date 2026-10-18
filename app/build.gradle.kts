@@ -39,3 +39,5 @@ dependencies {
     implementation(libs.material)
     implementation(libs.androidx.constraintlayout)
 }
+
+// auto-fix trigger patch
