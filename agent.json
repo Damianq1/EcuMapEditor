@@ -1,0 +1,12 @@
+{
+  "project_name": "EcuMapEditor",
+  "language": "Kotlin",
+  "build_command": "./gradlew assembleDebug",
+  "min_sdk": 26,
+  "architecture_rules": [
+    "Używamy Kotlin 1.9.20, AGP 8.3.0, Java 17, minSdk = 26.",
+    "DataBinding wymaga tagów <layout> w plikach XML w res/layout/.",
+    "Klasy bindingu importujemy z pakietu com.winols.app.databinding.*",
+    "Typy UINT32, INT32, FLOAT32 są zdefiniowane w com.winols.app.core.Types"
+  ]
+}
