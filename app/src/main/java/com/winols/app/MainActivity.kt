@@ -10,6 +10,10 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        
+        // Aktywacja globalnego przechwytywania crashów na starcie
+        Thread.setDefaultUncaughtExceptionHandler(CrashHandler())
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
     }
