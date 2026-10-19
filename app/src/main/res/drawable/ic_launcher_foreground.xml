@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    
+    <!-- Tło symbolu – ikona chipu / macierzy danych -->
+    <path
+        android:fillColor="#00FF00"
+        android:pathData="M34,34h40v40h-40z"
+        android:strokeWidth="4"
+        android:strokeColor="#00FF00" />
+    
+    <!-- Wewnętrzne linie siatki nawiązujące do edytora map i pamięci -->
+    <path
+        android:strokeWidth="2"
+        android:strokeColor="#1E1E1E"
+        android:pathData="M54,34v40M34,54h40" />
+
+    <!-- Inicjały aplikacji 'EM' (Ecu Map) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M42,46h4v16h-4z M46,46h6v4h-6z M46,58h6v4h-6z M58,46h4v16h-4z M66,46h4v16h-4z" />
+</vector>
