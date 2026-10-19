@@ -6,3 +6,4 @@ actions-runner/
 *.iml
 .idea/
 gh_error.log
+/error_debug.log
