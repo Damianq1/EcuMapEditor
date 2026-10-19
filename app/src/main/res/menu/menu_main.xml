@@ -9,8 +9,20 @@
         app:showAsAction="ifRoom" />
 
     <item
+        android:id="@+id/action_export_logs"
+        android:title="Eksportuj logi na zewnątrz"
+        android:icon="@android:drawable/ic_menu_send"
+        app:showAsAction="never" />
+
+    <item
+        android:id="@+id/action_toggle_theme"
+        android:title="Przełącz motyw (Jasny/Ciemny)"
+        android:icon="@android:drawable/ic_menu_view"
+        app:showAsAction="never" />
+
+    <item
         android:id="@+id/action_view_logs"
-        android:title="Pokaż logi sesji"
+        android:title="Pokaż ścieżkę logów"
         android:icon="@android:drawable/ic_menu_info_details"
         app:showAsAction="never" />
 
