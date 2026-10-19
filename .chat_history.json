@@ -46,5 +46,13 @@
   {
     "role": "assistant",
     "content": "### FILE: app/src/main/com/winols/app/MainActivity.kt\n```kotlin\npackage com.winols.app\n\nimport android.os.Bundle\nimport androidx.appcompat.app.AppCompatActivity\n\nclass MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main)\n    }\n}\n```"
+  },
+  {
+    "role": "user",
+    "content": "czy aplikacja ma to co miała mieć? menu wygląd ikony opcje"
+  },
+  {
+    "role": "assistant",
+    "content": "### FILE: app/src/main/com/winols/app/MainActivity.kt\n```kotlin\npackage com.winols.app\n\nimport android.os.Bundle\nimport androidx.appcompat.app.AppCompatActivity\n\nclass MainActivity : AppCompatActivity() {\n    override fun onCreate(savedInstanceState: Bundle?) {\n        super.onCreate(savedInstanceState)\n        setContentView(R.layout.activity_main)\n    }\n}\n```"
   }
 ]
