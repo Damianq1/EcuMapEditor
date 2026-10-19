@@ -1,7 +1,6 @@
 package com.AppCore.app.core
 
-import com.AppCore.app.model.*
-
+// Poprawiono import i pakiet na zgodny ze strukturą katalogów
 class BinaryBufferEngine {
-    // Engine implementation
+    // Logika silnika bufora binarnego
 }

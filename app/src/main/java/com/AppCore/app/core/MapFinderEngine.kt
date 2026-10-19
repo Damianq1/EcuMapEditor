@@ -1,7 +1,6 @@
 package com.AppCore.app.core
 
-import com.AppCore.app.model.*
-
+// Poprawiono pakiet
 class MapFinderEngine {
-    // Engine implementation
+    // Logika wyszukiwania map
 }
