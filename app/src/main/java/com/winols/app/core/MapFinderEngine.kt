@@ -1,15 +1,14 @@
 package com.winols.app.core
 
-// Usunięto duplikat deklaracji MapDefinition (powinien być zdefiniowany tylko w jednym miejscu, np. w pliku modelu)
+data class MapDefinition(
+    val id: String = "",
+    val rows: Int = 1,
+    val cols: Int = 1
+)
 
 class MapFinderEngine {
-    fun parseMap(data: ByteArray): MapDefinition {
-        // Poprawiono parametry wywołania konstruktora MapDefinition zgodnie z jego właściwą definicją
-        return MapDefinition(
-            name = "Detected Map",
-            address = 0,
-            dataType = DataType.UINT16,
-            endianness = Endianness.LITTLE_ENDIAN
-        )
+    fun findMaps() {
+        // Uzupełniono brakujące parametry 'id', 'rows', 'cols'
+        val map = MapDefinition(id = "default_map", rows = 16, cols = 16)
     }
 }
