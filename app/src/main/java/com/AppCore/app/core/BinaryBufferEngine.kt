@@ -1,6 +1,8 @@
 package com.AppCore.app.core
 
-// Poprawiono import i pakiet na zgodny ze strukturą katalogów
+// Upewnij się, że paczka model istnieje lub zaimportuj odpowiednią klasę modelową
+import com.AppCore.app.model.*
+
 class BinaryBufferEngine {
-    // Logika silnika bufora binarnego
+    // Implementacja silnika bufora binarnego
 }

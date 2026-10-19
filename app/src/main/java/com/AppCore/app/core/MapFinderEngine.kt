@@ -1,6 +1,8 @@
 package com.AppCore.app.core
 
-// Poprawiono pakiet
+// Upewnij się, że paczka model istnieje lub zaimportuj odpowiednią klasę modelową
+import com.AppCore.app.model.*
+
 class MapFinderEngine {
-    // Logika wyszukiwania map
+    // Implementacja silnika wyszukiwania map
 }
