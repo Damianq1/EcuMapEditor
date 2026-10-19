@@ -1,29 +1,49 @@
-Projekt: Mobilny Edytor Map ECU (Android)
+PROMPT ARCHITEKTONICZNY / SPECYFIKACJA PROJEKTU (SYSTEM CORE)
+
+Projekt: High-Performance Binary Memory & Multi-Dimensional Matrix Editor (Android)
 Pakiet główny: com.winols.app
-Język: Kotlin (pełna interoperacyjność z kodem w Java, np. MapDefinition, MapFinderEngine)
-Główny cel: Mobilny odpowiednik programów do analizy, podglądu i edycji plików binarnych Flash/EEPROM ze sterowników ECU.
+Język: Kotlin (pełna interoperacyjność z istniejącą bazą kodu w języku Java)
+Cel nadrzędny: Implementacja zaawansowanego, mobilnego środowiska do analizy, parsowania, transformacji i edycji dużych plików binarnych (Raw Memory Dumps / EEPROM / Flash Images) z wykorzystaniem struktur macierzowych, wykresów i buforów bezpośrednich.
 
-1. WYMAGANIA TECHNICZNE I ARCHITEKTURA
-- UI: ViewBinding, własne skustomizowane widoki (Custom Views) dla wykresów 2D/3D i tabel.
-- Wydajność: Operacje I/O, skanowanie pamięci i przeliczania binarne asynchronicznie (Kotlin Coroutines / Dispatchers.Default / IO).
-- Pamięć: Praca na plikach binarnych (512 KB – 8 MB) z użyciem bezpośrednich buforów pamięci (java.nio.ByteBuffer) oraz caching.
+---
 
-2. KLUCZOWE MODUŁY I FUNKCJONALNOŚCI
-[A] Obsługa plików binarnych (.bin / .hex) - BinaryFileManager:
-- Odczyt/zapis przez ByteBuffer.
-- Reprezentacje: HEX (8-bit/16-bit, Signed/Unsigned, Little/Big Endian), Wykres 2D, Tabela 3D.
+1. WYMAGANIA TECHNICZNE I ARCHITEKTURA SYSTEMU
+- Warstwa Prezentacji (UI): ViewBinding, w pełni skustomizowane komponenty widoków (Custom Views) zoptymalizowane pod kątem renderowania macierzy danych, wykresów 2D oraz siatek 3D.
+- Model Asynchroniczności: Operacje wejścia/wyjścia (I/O), skanowanie strumienia bajtów, parsowanie struktur oraz operacje numeryczne MUSZĄ być wykonywane w tle z użyciem Kotlin Coroutines (Dispatchers.IO oraz Dispatchers.Default), zapobiegając jakiejkolwiek blokadzie głównego wątku renderowania (UI Thread).
+- Zarządzanie Pamięcią: Obsługa dużych zasobów binarnych o rozmiarach od 512 KB do 8 MB z wykorzystaniem mechanizmów java.nio.ByteBuffer (Direct Buffers), buforowania w pamięci podręcznej (Caching) oraz optymalizacji alokacji obiektów pod kątem Garbage Collection.
 
-[B] Wyszukiwanie i definicja map (MapFinderEngine & MapDefinition):
-- Automatyczne wykrywanie potencjalnych map (osie X/Y, bloki danych).
-- Przeliczanie RAW na fizyczne według Factor i Offset: Wartość = (RAW * Factor) + Offset.
+---
 
-[C] Podgląd i edycja danych (HexGridView, Waveform2DView, Surface3DView):
-- Widok tabelaryczny z operacjami masowymi: dodawanie/odejmowanie, zmiana procentowa (+/- %), stała wartość, wygładzanie (smoothing).
-- Interaktywny wykres 2D i 3D dla zaznaczonych map.
+2. KLUCZOWE MODUŁY I KOMPONENTY ARCHITEKTURY
 
-[D] Sumy kontrolne i Eksport (ExcelExporter & ChecksumEngine):
-- Eksport map i różnic (ori vs mod) do CSV/XLS.
-- Przeliczanie i weryfikacja sum kontrolnych przed zapisem.
+[A] Moduł Operacji na Strumieniach Binarnych (Binary I/O Engine)
+- Wysoko wydajny odczyt i zapis plików binarnych (.bin / .hex / .dat).
+- Dynamiczne przełączanie reprezentacji strumienia bajtów na poziomie widoku:
+  * Widok HEX (8-bit / 16-bit, Signed / Unsigned, Byte Endianness: Big Endian / Little Endian / Hi-Lo).
+  * Reprezentacja 2D (wykres przebiegu sygnału / osi wartości).
+  * Macierzowa reprezentacja 3D (Z-axis grid mapping).
 
-3. DODATKOWE:
-- Wygeneruj również workflow GitHub Actions (.github/workflows/android.yml) do automatycznej budowy APK.
+[B] Silnik Detekcji i Definicji Struktur (MapFinderEngine & MapDefinition)
+- Algorytmy heurystyczne skanujące surowy strumień danych w poszukiwaniu sekwencji nagłówków, macierzy osi (X/Y) oraz bloków wartości stałych.
+- Moduł konwersji wartości surowych (RAW Values) na jednostki fizyczne przy użyciu transformacji liniowej:
+  * Wzór transformacji: Physical_Value = (RAW * Factor) + Offset
+  * Przykłady parametrów: x * 0.01, (x * 0.25) - 40
+
+[C] Warstwa Edycji i Transformacji Danych (Grid & Matrix Editor)
+- Dwuwymiarowa siatka edytcyjna (Grid View) wspierająca operacje masowe (Bulk Operations):
+  * Operacje arytmetyczne na zaznaczonym bloku (dodawanie / odejmowanie wartości stałej).
+  * Skalowanie procentowe (+/- %).
+  * Aplikowanie stałej wartości (Fill / Override).
+  * Algorytmy wygładzania gradientu danych (Smoothing / Interpolation).
+- Interaktywny render 2D oraz dynamiczna wizualizacja macierzy 3D dla wyselekcjonowanych struktur danych.
+
+[D] Silnik Weryfikacji Integralności i Eksportu (ChecksumEngine & ExcelExporter)
+- Moduł eksportu zdefiniowanych struktur macierzowych oraz tabel różnicowych (Comparator: Original vs Modified) do formatów arkuszy kalkulacyjnych (XLS / CSV).
+- Podsystem weryfikacji sum kontrolnych (Checksum Calculation & Validation) przed zatwierdzeniem zapisu pliku wyjściowego.
+
+---
+
+3. ZASADY IMPLEMENTACJI I GENEROWANIA KODU PRZEZ AI
+1. Jeśli generowany komponent lub klasa jest obszerna, podziel odpowiedź na logiczne etapy (np. Część 1: Core Engine i Modele, Część 2: UI i Adaptery), unikając ucinania kodu.
+2. Kod musi być dostosowany do środowiska mobilnego / kompilacji w warunkach ograniczeń zasobów, formatowany w czystych blokach ```kotlin bez zbędnego tekstu objaśniającego (Clean, Production-Ready Code).
+3. Ścisłe przestrzeganie struktury pakietów ukierunkowanej na `com.winols.app`.
