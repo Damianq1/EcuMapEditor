@@ -1,6 +1,0 @@
-Błędy wskazują na problemy z wygenerowaną klasą `R` oraz powiązaniami widoków (DataBinding, np. `ActivityEditorBinding`), co najczęściej wynika z:
-1. Błędu składniowego w plikach XML layoutu (przez co AAPT/Gradle nie generuje klasy `R` ani klas `Binding`).
-2. Niewłaściwego pakietu lub importu `import com.AppCore.app.R` w plikach Kotlin.
-3. Brakującej konfiguracji DataBinding w pliku `build.gradle` (np. brakuje `buildFeatures { dataBinding = true }`).
-
-Proszę o dostarczenie zawartości plików źródłowych (np. `MainActivity.kt`, `EditorActivity.kt`, plik `build.gradle` oraz odpowiednie pliki XML layoutu), abym mógł dokładnie wskazać poprawki i zwrócić je w wymaganym formacie `
