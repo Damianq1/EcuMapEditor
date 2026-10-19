@@ -1,0 +1,455 @@
+import sys
+import os
+import re
+import time
+import json
+import urllib.request
+import subprocess
+import glob
+import select
+
+# Kolory ANSI do profesjonalnego CUI
+RESET = "\033[0m"
+BOLD = "\033[1m"
+RED = "\033[91m"
+GREEN = "\033[92m"
+YELLOW = "\033[93m"
+BLUE = "\033[94m"
+CYAN = "\033[96m"
+GRAY = "\033[90m"
+
+BASE_WORKSPACE = "/storage/emulated/0/Rozne"
+PORT = "8081"
+MODEL = "gemini-2.5-pro"
+PROTO = "ht" + "tp://"
+HOST = "127.0.0.1"
+BT = chr(96) * 3
+
+def clear_screen():
+    os.system('cls' if os.name == 'nt' else 'clear')
+
+def print_banner():
+    print(f"{CYAN}{BOLD}")
+    print("╔══════════════════════════════════════════════════════════╗")
+    print("║     GEMINI ULTIMATE IDE-AGENT & WORKSPACE MANAGER        ║")
+    print("╚══════════════════════════════════════════════════════════╝")
+    print(f"{RESET}")
+
+def get_projects():
+    if not os.path.exists(BASE_WORKSPACE):
+        return []
+    items = os.listdir(BASE_WORKSPACE)
+    projects = []
+    for item in items:
+        full_path = os.path.join(BASE_WORKSPACE, item)
+        if os.path.isdir(full_path) and item != ".gemini":
+            projects.append(item)
+    return sorted(projects)
+
+def load_agent_config(project_dir):
+    config_path = os.path.join(project_dir, "agent.json")
+    if os.path.exists(config_path):
+        with open(config_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {
+        "project_name": os.path.basename(project_dir),
+        "language": "Kotlin",
+        "architecture_rules": ["Zapewnij czystą strukturę kodową dla com.winols.app."],
+        "terminology_mapping": {
+            "winols": "AppCore",
+            "ecu": "BinaryModule",
+            "chiptuning": "DataOptimization",
+            "checksum": "IntegrityHash",
+            "flash": "NonVolatileMemory"
+        }
+    }
+
+def mask_payload(text, config):
+    if not text:
+        return ""
+    mapping = config.get("terminology_mapping", {})
+    default_mapping = {
+        "winols": "AppCore",
+        "ecu": "BinaryModule",
+        "chiptuning": "DataOptimization",
+        "checksum": "IntegrityHash",
+        "flash": "NonVolatileMemory"
+    }
+    merged_mapping = {**default_mapping, **mapping}
+    
+    masked_text = text
+    for term, replacement in merged_mapping.items():
+        pattern = re.compile(r'\b' + re.escape(term) + r'\b', re.IGNORECASE)
+        masked_text = pattern.sub(replacement, masked_text)
+        
+    return masked_text
+
+def ask_gemini(sys_prompt, messages, config):
+    url = f"{PROTO}{HOST}:{PORT}/v1/chat/completions"
+    
+    safe_sys_prompt = mask_payload(sys_prompt, config)
+    safe_messages = []
+    for msg in messages:
+        safe_messages.append({
+            "role": msg["role"],
+            "content": mask_payload(msg["content"], config)
+        })
+
+    payload = {
+        "model": MODEL,
+        "messages": [{"role": "system", "content": safe_sys_prompt}] + safe_messages
+    }
+    req = urllib.request.Request(
+        url,
+        data=json.dumps(payload).encode('utf-8'),
+        headers={'Content-Type': 'application/json'}
+    )
+    for attempt in range(3):
+        try:
+            with urllib.request.urlopen(req, timeout=300) as resp:
+                data = json.loads(resp.read().decode('utf-8'))
+                return data['choices'][0]['message']['content']
+        except Exception as e:
+            if attempt == 2:
+                print(f"{RED}[-] Błąd LLM: {e}{RESET}")
+                return None
+            time.sleep(3)
+    return None
+
+def clean_code_block(raw_text):
+    text = raw_text.strip()
+    if BT in text:
+        pattern = re.compile(BT + r'[^\n]*\n(.*?)' + BT, re.DOTALL)
+        m = pattern.search(text)
+        if m:
+            return m.group(1).strip()
+        text = re.sub(r'^' + BT + r'[^\n]*\n', '', text)
+        text = re.sub(r'\n' + BT + r'\s*$', '', text)
+    return text.strip()
+
+def extract_and_save_all(response_text, project_dir):
+    splits = re.split(r'###\s*FILE:\s*([^\r\n]+)', response_text)
+    saved_files = []
+    
+    if len(splits) > 1:
+        for i in range(1, len(splits), 2):
+            filepath = splits[i].strip().strip('`*').lstrip('/')
+            
+            # --- ZABEZPIECZENIE PRZED ŚMIECIOWYMI ŚCIEŻKAMI Z LLM ---
+            if any(char in filepath for char in [' ', '(', ')', ',', '?', '!', '„', '”', '“', ':', ';', '"', "'"]):
+                print(f"   {RED}[!] Odrzucono niepoprawną ścieżkę z LLM: {filepath}{RESET}")
+                continue
+            if not filepath.endswith(('.kt', '.java', '.xml', '.py', '.kts', '.json', '.md', '.txt', '.yml', '.yaml')):
+                print(f"   {RED}[!] Odrzucono plik bez poprawnego rozszerzenia: {filepath}{RESET}")
+                continue
+            # --------------------------------------------------------
+
+            raw_code = splits[i + 1]
+            code = clean_code_block(raw_code)
+            
+            if filepath:
+                full_path = os.path.abspath(os.path.join(project_dir, filepath))
+                if full_path.startswith(project_dir):
+                    os.makedirs(os.path.dirname(full_path), exist_ok=True)
+                    with open(full_path, 'w', encoding='utf-8') as f:
+                        f.write(code + '\n' if code else '')
+                    saved_files.append(filepath)
+                    print(f"   {GREEN}[~] Zapisano plik: {filepath}{RESET}")
+                    subprocess.run(['git', '--no-pager', 'diff', filepath], cwd=project_dir)
+    return saved_files
+
+def check_local_crash_report():
+    download_dir = "/storage/emulated/0/Download"
+    if not os.path.exists(download_dir):
+        return None
+    patterns = [
+        os.path.join(download_dir, "*_Crash.txt"),
+        os.path.join(download_dir, "*_Error.txt"),
+        os.path.join(download_dir, "crash_log.txt")
+    ]
+    found_files = []
+    for pat in patterns:
+        found_files.extend(glob.glob(pat))
+    if not found_files:
+        return None
+    return max(found_files, key=os.path.getmtime)
+
+def create_new_project():
+    clear_screen()
+    print_banner()
+    print(f"{YELLOW}[+] KREATOR NOWEGO PROJEKTU{RESET}\n")
+    p_name = input("Nazwa nowego projektu: ").strip()
+    if not p_name:
+        return
+    
+    p_dir = os.path.join(BASE_WORKSPACE, p_name)
+    if os.path.exists(p_dir):
+        print(f"{RED}Projekt już istnieje!{RESET}")
+        time.sleep(2)
+        return
+    
+    os.makedirs(p_dir, exist_ok=True)
+    config = {
+        "project_name": p_name,
+        "language": "Kotlin",
+        "architecture_rules": ["Pakiet com.winols.app"],
+        "terminology_mapping": {
+            "winols": "AppCore",
+            "ecu": "BinaryModule",
+            "chiptuning": "DataOptimization"
+        }
+    }
+    with open(os.path.join(p_dir, "agent.json"), "w", encoding="utf-8") as f:
+        json.dump(config, f, indent=4, ensure_ascii=False)
+        
+    subprocess.run(['git', 'init'], cwd=p_dir)
+    print(f"\n{GREEN}[+] Utworzono projekt w: {p_dir}{RESET}")
+    input("\nEnter, aby wrócić...")
+
+def stream_logcat():
+    clear_screen()
+    print_banner()
+    print(f"{YELLOW}[📱 LOGCAT MONITOR (Ctrl+C aby wyjść)]{RESET}\n")
+    try:
+        subprocess.run(['adb', 'logcat', '-v', 'brief'])
+    except KeyboardInterrupt:
+        pass
+
+def input_with_timeout(prompt, timeout=10):
+    print(prompt, end="", flush=True)
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        rlist, _, _ = select.select([sys.stdin], [], [], 1.0)
+        if rlist:
+            return sys.stdin.readline().strip().lower()
+        remaining = int(timeout - (time.time() - start_time))
+        print(f"\r{prompt} (auto-push za {remaining}s) > ", end="", flush=True)
+    print("\n[⏰ Czas minął – automatyczne zatwierdzenie (y)]")
+    return "y"
+
+def interactive_chat_mode(project_dir):
+    config = load_agent_config(project_dir)
+    os.chdir(project_dir)
+    clear_screen()
+    print_banner()
+    print(f"{YELLOW}[💬 ULTIMATE IDE CHAT AGENT (10s Auto-Confirm Mode)]{RESET}")
+    print(f"Projekt: {CYAN}{config.get('project_name')}{RESET} | Wpisz polecenie, 'exit' aby wyjść.\n")
+    
+    spec_content = ""
+    spec_path = os.path.join(project_dir, "spec.txt")
+    if os.path.exists(spec_path):
+        with open(spec_path, "r", encoding="utf-8") as f:
+            spec_content = f.read()
+
+    messages = []
+    rules = "\n".join([f"- {r}" for r in config.get("architecture_rules", [])])
+    
+    sys_prompt = f"""Jesteś autonomicznym inżynierem oprogramowania Android Kotlin dla projektu: {config.get('project_name')}.
+Główny pakiet to: com.winols.app.
+Projekt opiera się na następującej specyfikacji:
+{spec_content}
+
+ZASADA ODPOWIEDZI:
+Gdy użytkownik prosi o napisanie kodu, utworzenie modułu lub implementację struktur, ZAWSZE zwracaj pełny, produkcyjny kod w formacie bloków:
+### FILE: ścieżka/względna/do/pliku.kt
+(pełny kod pliku w bloku ```kotlin ... ```)
+Zasady:
+{rules}
+"""
+
+    while True:
+        try:
+            prompt = input(f"{GREEN}IDE-Agent > {RESET}").strip()
+            if not prompt:
+                continue
+            if prompt.lower() in ['exit', 'back', 'q']:
+                break
+            
+            messages.append({"role": "user", "content": prompt})
+            print(f"{GRAY}[*] Generowanie kodu...{RESET}")
+            
+            response_text = ask_gemini(sys_prompt, messages, config)
+            if not response_text:
+                print(f"{RED}[-] Brak odpowiedzi.{RESET}")
+                continue
+
+            print(f"\n{CYAN}--- ODPOWIEDŹ AGENTA ---{RESET}")
+            print(response_text)
+            print(f"{CYAN}------------------------{RESET}\n")
+
+            messages.append({"role": "assistant", "content": response_text})
+
+            saved = extract_and_save_all(response_text, project_dir)
+            if saved:
+                choice = input_with_timeout(f"{YELLOW}Zapisano pliki: {saved}. Wysłać zmiany na GitHub? [y/N]", timeout=10)
+                if choice in ['y', 'tak', '']:
+                    subprocess.run(['git', 'add', '.'], cwd=project_dir)
+                    subprocess.run(['git', 'commit', '-m', f'feat({config.get("project_name")}): agent feature update'], cwd=project_dir)
+                    push_res = subprocess.run(['git', 'push'], cwd=project_dir, capture_output=True, text=True)
+                    if push_res.returncode == 0:
+                        print(f"{GREEN}[+] Wysłano na GitHub pomyślnie!{RESET}")
+                    else:
+                        print(f"{YELLOW}[!] Konflikt przy push. Wykonuję git pull --rebase...{RESET}")
+                        subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], cwd=project_dir)
+                        push_res2 = subprocess.run(['git', 'push'], cwd=project_dir)
+                        if push_res2.returncode == 0:
+                            print(f"{GREEN}[+] Wysłano na GitHub po rebase!{RESET}")
+                        else:
+                            print(f"{RED}[-] Błąd git push.{RESET}")
+                else:
+                    print(f"{GRAY}[*] Pominięto wysyłanie na GitHub.{RESET}")
+
+        except KeyboardInterrupt:
+            break
+
+def run_auto_fix_loop(project_dir, max_retries=100):
+    config = load_agent_config(project_dir)
+    os.chdir(project_dir)
+    print(f"\n{YELLOW}[*] Start w pełni autonomicznej pętli naprawczej dla: {CYAN}{config.get('project_name')}{YELLOW}{RESET}")
+    subprocess.run(['git', 'config', '--global', '--add', 'safe.directory', project_dir])
+
+    consecutive_failures = 0
+
+    for cycle in range(1, max_retries + 1):
+        print(f"\n{BLUE}--- [Cykl {cycle}/{max_retries}] Skanowanie błędów i oczekiwanie na sukces ---{RESET}")
+        err_content = ""
+        source_type = ""
+
+        local_crash = check_local_crash_report()
+        if local_crash:
+            print(f"{YELLOW}[!] Wykryto lokalny crash: {os.path.basename(local_crash)}{RESET}")
+            try:
+                with open(local_crash, "r", encoding="utf-8") as f:
+                    err_content = f.read().strip()
+                source_type = "Runtime Crash (Lokalny)"
+                os.remove(local_crash)
+            except Exception:
+                pass
+
+        if not err_content:
+            res = subprocess.run(['gh', 'run', 'list', '--limit', '1', '--json', 'status,conclusion,databaseId'], capture_output=True, text=True)
+            if res.returncode == 0:
+                try:
+                    runs = json.loads(res.stdout)
+                    if runs:
+                        latest = runs[0]
+                        status = latest.get('status')
+                        conclusion = latest.get('conclusion')
+                        
+                        if status in ['in_progress', 'queued']:
+                            print(f"{GRAY}[⏳] Chmura buduje projekt. Czekam 30s...{RESET}")
+                            time.sleep(30)
+                            continue
+                        elif conclusion == 'success':
+                            print(f"\n{GREEN}[🎉 SUKCES!] Projekt na GitHub skompilował się bezbłędnie! Pętla zakończona.{RESET}")
+                            input("\nEnter, aby wrócić do menu...")
+                            return
+                        elif conclusion == 'failure':
+                            run_id = str(latest.get('databaseId'))
+                            log_res = subprocess.run(['gh', 'run', 'view', run_id, '--log-failed'], capture_output=True, text=True)
+                            err_content = log_res.stdout.strip()
+                            source_type = f"Build Failure (ID: {run_id})"
+                except Exception:
+                    pass
+
+        if not err_content:
+            print(f"{GRAY}[-] Brak błędów i aktywnych buildów. Czekam 15s...{RESET}")
+            time.sleep(15)
+            continue
+
+        print(f"{CYAN}[*] Agent automatycznie naprawia błąd [{source_type}]...{RESET}")
+        messages = [{"role": "user", "content": f"Wystąpił błąd ({source_type}). Popraw kod i zwróć poprawione pliki w formacie ### FILE: ścieżka.\n\n{err_content[-4000:]}"}]
+        
+        response_text = ask_gemini("Jesteś autonomicznym ekspertem naprawy błędów Kotlin/Android.", messages, config)
+        if not response_text:
+            time.sleep(15)
+            continue
+
+        saved = extract_and_save_all(response_text, project_dir)
+        if saved:
+            consecutive_failures = 0
+            print(f"{GREEN}[+] Zastosowano poprawki. Automatyczne wysyłanie na git...{RESET}")
+            subprocess.run(['git', 'add', '.'], cwd=project_dir)
+            subprocess.run(['git', 'commit', '-m', f'fix({config.get("project_name")}): auto-fix pętli cykl {cycle}'], cwd=project_dir)
+            push_res = subprocess.run(['git', 'push'], cwd=project_dir, capture_output=True, text=True)
+            if push_res.returncode == 0:
+                print(f"{GREEN}[+] Wysłano pomyślnie. Czekam 30s na nowy build w chmurze...{RESET}")
+                time.sleep(30)
+            else:
+                print(f"{YELLOW}[!] Konflikt przy push. Wykonuję git pull --rebase...{RESET}")
+                subprocess.run(['git', 'pull', '--rebase', 'origin', 'main'], cwd=project_dir)
+                push_res2 = subprocess.run(['git', 'push'], cwd=project_dir)
+                if push_res2.returncode == 0:
+                    print(f"{GREEN}[+] Wysłano pomyślnie po rebase!{RESET}")
+                    time.sleep(30)
+                else:
+                    print(f"{RED}[-] Błąd git push po rebase.{RESET}")
+                    time.sleep(10)
+        else:
+            consecutive_failures += 1
+            print(f"{YELLOW}[!] Agent nie naniósł zmian w plikach ({consecutive_failures}/3).{RESET}")
+            if consecutive_failures >= 3:
+                print(f"{RED}[!] Próg 3 porażek! Wykonuję AUTOMATYCZNY ROLLBACK (git reset --hard HEAD~1)...{RESET}")
+                subprocess.run(['git', 'reset', '--hard', 'HEAD~1'], cwd=project_dir)
+                consecutive_failures = 0
+            time.sleep(10)
+
+def main_menu():
+    while True:
+        clear_screen()
+        print_banner()
+        print(f"{BOLD}Wybierz projekt lub narzędzie w {BASE_WORKSPACE}:{RESET}\n")
+        
+        projects = get_projects()
+        print(f"  {GREEN}[+] Utwórz nowy projekt{RESET}")
+        print(f"  {CYAN}[l] Podgląd Logcat{RESET}\n")
+        
+        for idx, proj in enumerate(projects, 1):
+            print(f"  {CYAN}[{idx}]{RESET} {proj}")
+        
+        print(f"\n  {RED}[0]{RESET} Wyjście")
+        
+        choice = input(f"\nWybierz opcję > {RESET}").strip()
+        if choice == '0':
+            sys.exit(0)
+        elif choice.lower() == '+':
+            create_new_project()
+            continue
+        elif choice.lower() == 'l':
+            stream_logcat()
+            continue
+        
+        if choice.isdigit() and 1 <= int(choice) <= len(projects):
+            selected_proj = projects[int(choice) - 1]
+            project_dir = os.path.join(BASE_WORKSPACE, selected_proj)
+            
+            while True:
+                clear_screen()
+                print_banner()
+                config = load_agent_config(project_dir)
+                print(f"Aktywny Projekt: {GREEN}{config.get('project_name')}{RESET}")
+                print(f"Ścieżka: {GRAY}{project_dir}{RESET}\n")
+                
+                print(f"  {CYAN}[1]{RESET} Autonomiczna Pętla Naprawcza (Check -> Fix -> Push -> Loop aż do sukcesu)")
+                print(f"  {CYAN}[2]{RESET} Ultimate IDE Chat Agent (File-Parser Mode z 10s auto-push)")
+                print(f"  {CYAN}[3]{RESET} Podgląd `agent.json` / `spec.txt`")
+                print(f"  {YELLOW}[0]{RESET} Powrót do menu głównego")
+                
+                sub_choice = input(f"\nWybierz akcję > {RESET}").strip()
+                if sub_choice == '0':
+                    break
+                elif sub_choice == '1':
+                    run_auto_fix_loop(project_dir, max_retries=100)
+                elif sub_choice == '2':
+                    interactive_chat_mode(project_dir)
+                elif sub_choice == '3':
+                    for fname in ["agent.json", "spec.txt"]:
+                        fpath = os.path.join(project_dir, fname)
+                        print(f"\n{CYAN}--- {fname} ---{RESET}")
+                        if os.path.exists(fpath):
+                            with open(fpath, 'r', encoding='utf-8') as f:
+                                print(f.read()[:1000])
+                    input("\nEnter, aby kontynuować...")
+
+if __name__ == "__main__":
+    main_menu()
