@@ -7,7 +7,6 @@ import com.AppCore.app.R
 import com.AppCore.app.databinding.ActivityEditorBinding
 
 class EditorActivity : AppCompatActivity() {
-
     private lateinit var binding: ActivityEditorBinding
 
     override fun onCreate(savedInstanceState: Bundle?) {
